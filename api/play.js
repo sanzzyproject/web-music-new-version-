@@ -3,46 +3,41 @@ const axios = require('axios');
 export default async function handler(req, res) {
     const { url } = req.query;
 
-    if (!url) {
-        return res.status(400).json({ error: 'URL parameter is required' });
-    }
+    if (!url) return res.status(400).json({ error: 'URL required' });
 
     try {
         const html = await axios.get('https://spotify.downloaderize.com');
-        const nonce = html.data.match(/var\s+spotifyDownloader\s*=\s*\{[^}]*"nonce":"([^"]+)"/i)[1];
+        const nonceMatch = html.data.match(/"nonce":"([^"]+)"/);
+        const nonce = nonceMatch ? nonceMatch[1] : null;
 
         const r = await axios.post('https://spotify.downloaderize.com/wp-admin/admin-ajax.php', 
             new URLSearchParams({
                 action: 'spotify_downloader_get_info',
                 url: url,
-                nonce
+                nonce: nonce
             }).toString(), 
             {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10)',
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K)',
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                     'x-requested-with': 'XMLHttpRequest',
-                    origin: 'https://spotify.downloaderize.com',
-                    referer: 'https://spotify.downloaderize.com/'
+                    'origin': 'https://spotify.downloaderize.com',
+                    'referer': 'https://spotify.downloaderize.com/'
                 }
             }
         );
 
         const d = r.data.data;
-        
-        // Cek jika data valid
-        if(!d || !d.medias) {
-             throw new Error("Gagal mengambil data lagu. Coba lagi.");
+        if(!d || !d.medias || d.medias.length === 0) {
+             // Fallback jika gagal
+             throw new Error("Gagal mengambil link download.");
         }
 
         const result = {
             title: d.title,
             artist: d.author,
-            duration: d.duration,
             thumbnail: d.thumbnail,
-            download: d.medias?.[0]?.url || null,
-            quality: d.medias?.[0]?.quality || null
+            download: d.medias[0].url
         };
 
         return res.status(200).json({ status: 'success', result });
