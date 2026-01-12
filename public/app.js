@@ -1,90 +1,113 @@
 const audio = document.getElementById('audioPlayer');
 const searchInput = document.getElementById('searchInput');
-const trackList = document.getElementById('trackList');
-const playIcon = document.getElementById('playIcon');
-const progressBar = document.getElementById('progressBar');
-const currentTimeEl = document.getElementById('currentTime');
-const durationEl = document.getElementById('duration');
-
-// UI View Elements
 const homeView = document.getElementById('homeView');
 const resultsView = document.getElementById('resultsView');
-const loader = document.getElementById('loader');
+const homeGrid = document.getElementById('homeGrid');
+const trackList = document.getElementById('trackList');
+const searchLoader = document.getElementById('searchLoader');
+const progressFill = document.getElementById('progressFill');
+const playIcon = document.getElementById('playIcon');
 
-// Event Listener Search
-searchInput.addEventListener('keypress', function (e) {
+// 1. Initial Load (Supaya Home tidak kosong)
+window.addEventListener('DOMContentLoaded', () => {
+    // Cari lagu default untuk mengisi beranda
+    fetchAndRenderHome('Top Hits Indonesia');
+});
+
+function switchTab(tabName) {
+    // UI Updates untuk Nav
+    document.querySelectorAll('.nav-item, .b-nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.tab === tabName);
+    });
+
+    if(tabName === 'home') {
+        homeView.classList.remove('hidden');
+        resultsView.classList.add('hidden');
+    } else if(tabName === 'search') {
+        homeView.classList.add('hidden');
+        resultsView.classList.remove('hidden');
+        searchInput.focus();
+    }
+}
+
+// 2. Search Logic
+searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-        const query = e.target.value;
-        if(query) searchMusic(query);
+        performSearch(e.target.value);
     }
 });
 
-function showHome() {
-    homeView.classList.remove('hidden');
-    resultsView.classList.add('hidden');
-}
-
-function focusSearch() {
-    searchInput.focus();
-}
-
-function triggerSearch(query) {
-    searchInput.value = query;
-    searchMusic(query);
-}
-
-// Search Logic
-async function searchMusic(query) {
-    homeView.classList.add('hidden');
-    resultsView.classList.remove('hidden');
-    loader.classList.remove('hidden');
+async function performSearch(query) {
+    if(!query) return;
+    switchTab('search');
     trackList.innerHTML = '';
-    
+    searchLoader.classList.remove('hidden');
+
     try {
         const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
         const data = await res.json();
-
-        loader.classList.add('hidden');
+        
+        searchLoader.classList.add('hidden');
 
         if(data.status === 'success' && data.results.length > 0) {
             data.results.forEach(track => {
                 const div = document.createElement('div');
                 div.className = 'track-row';
                 div.innerHTML = `
-                    <img src="${track.thumbnail || 'https://via.placeholder.com/40'}" class="track-img">
+                    <img src="${track.thumbnail}" class="track-img">
                     <div class="track-info">
-                        <div class="track-title">${track.title}</div>
-                        <div class="track-artist">${track.artist}</div>
+                        <h4>${track.title}</h4>
+                        <p>${track.artist}</p>
                     </div>
-                    <i class="fas fa-play-circle track-play"></i>
                 `;
-                // Kirim URL khusus yang didapat dari search API
-                div.onclick = () => playMusic(track.url, track);
+                div.onclick = () => playMusic(track);
                 trackList.appendChild(div);
             });
         } else {
-            trackList.innerHTML = '<p style="text-align:center; color: #b3b3b3; margin-top:20px;">Lagu tidak ditemukan.</p>';
+            trackList.innerHTML = '<p style="text-align:center; padding:20px; color:#b3b3b3;">Tidak ada hasil ditemukan.</p>';
         }
-
-    } catch (error) {
-        loader.classList.add('hidden');
-        console.error(error);
-        trackList.innerHTML = '<p style="text-align:center; color: red;">Terjadi kesalahan saat mencari.</p>';
+    } catch (err) {
+        searchLoader.classList.add('hidden');
+        trackList.innerHTML = `<p style="text-align:center; color:red;">Gagal: ${err.message}</p>`;
     }
 }
 
-// Play Logic
-async function playMusic(url, metaData) {
-    // Update UI Player sementara
-    document.getElementById('playerTitle').innerText = metaData.title;
-    document.getElementById('playerArtist').innerText = metaData.artist;
-    document.getElementById('playerImg').src = metaData.thumbnail || 'https://via.placeholder.com/50';
-    
-    // Tampilkan loading di button play
-    playIcon.className = "fas fa-spinner fa-spin";
+// 3. Render Home Grid
+async function fetchAndRenderHome(query) {
+    try {
+        const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        homeGrid.innerHTML = ''; // Clear loader
+        
+        if(data.status === 'success') {
+            data.results.slice(0, 10).forEach(track => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <img src="${track.thumbnail}">
+                    <h4>${track.title}</h4>
+                    <p>${track.artist}</p>
+                `;
+                card.onclick = () => playMusic(track);
+                homeGrid.appendChild(card);
+            });
+        }
+    } catch (e) {
+        console.log("Gagal load home", e);
+    }
+}
+
+// 4. Play Music Logic
+async function playMusic(track) {
+    // Update UI Player
+    document.getElementById('playerTitle').innerText = track.title;
+    document.getElementById('playerArtist').innerText = track.artist;
+    document.getElementById('playerImg').src = track.thumbnail;
+    playIcon.className = "fas fa-spinner fa-spin"; // Loading state
 
     try {
-        const res = await fetch(`/api/play?url=${encodeURIComponent(url)}`);
+        // Panggil API Play
+        const res = await fetch(`/api/play?url=${encodeURIComponent(track.url)}`);
         const data = await res.json();
 
         if(data.status === 'success' && data.result.download) {
@@ -92,20 +115,19 @@ async function playMusic(url, metaData) {
             audio.play();
             playIcon.className = "fas fa-pause";
         } else {
-            alert("Gagal memutar lagu (Link tidak valid).");
+            alert("Maaf, sumber audio tidak ditemukan untuk lagu ini.");
             playIcon.className = "fas fa-play";
         }
-
     } catch (error) {
         console.error(error);
-        alert("Gagal mengambil stream audio.");
+        alert("Gagal memutar lagu.");
         playIcon.className = "fas fa-play";
     }
 }
 
-// Audio Controls
+// 5. Audio Control
 function togglePlay() {
-    if (audio.paused) {
+    if(audio.paused && audio.src) {
         audio.play();
         playIcon.className = "fas fa-pause";
     } else {
@@ -115,27 +137,11 @@ function togglePlay() {
 }
 
 audio.addEventListener('timeupdate', () => {
-    const progress = (audio.currentTime / audio.duration) * 100;
-    progressBar.value = isNaN(progress) ? 0 : progress;
-    
-    // Format Time
-    const currentMins = Math.floor(audio.currentTime / 60);
-    const currentSecs = Math.floor(audio.currentTime % 60);
-    currentTimeEl.innerText = `${currentMins}:${currentSecs < 10 ? '0' : ''}${currentSecs}`;
-    
-    if(!isNaN(audio.duration)){
-        const durMins = Math.floor(audio.duration / 60);
-        const durSecs = Math.floor(audio.duration % 60);
-        durationEl.innerText = `${durMins}:${durSecs < 10 ? '0' : ''}${durSecs}`;
-    }
-});
-
-progressBar.addEventListener('input', () => {
-    const time = (progressBar.value / 100) * audio.duration;
-    audio.currentTime = time;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    progressFill.style.width = pct + "%";
 });
 
 audio.addEventListener('ended', () => {
     playIcon.className = "fas fa-play";
-    progressBar.value = 0;
+    progressFill.style.width = "0%";
 });
