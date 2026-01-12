@@ -8,53 +8,58 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 1. Ambil Token/Nonce halaman utama
-        const html = await axios.get('https://spotify.downloaderize.com', {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        // 1. Ambil Halaman Utama untuk cari Token (Nonce)
+        const mainPage = await axios.get('https://spotify.downloaderize.com/', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
             }
         });
-        
-        // Regex yang lebih aman untuk menangkap nonce
-        const securityMatch = html.data.match(/"nonce":"([^"]+)"/);
-        const security = securityMatch ? securityMatch[1] : null;
 
-        if (!security) throw new Error("Gagal mengambil token keamanan (Nonce).");
+        // 2. Regex yang lebih luas untuk menangkap nonce (karena sering berubah posisi)
+        // Mencari pola "nonce":"12345abcde"
+        const nonceMatch = mainPage.data.match(/"nonce":"([a-zA-Z0-9]+)"/);
+        const security = nonceMatch ? nonceMatch[1] : null;
 
-        // 2. Request Search
-        const r = await axios.get('https://spotify.downloaderize.com/wp-admin/admin-ajax.php', {
+        if (!security) {
+            throw new Error("Gagal mendapatkan token keamanan dari server penyedia.");
+        }
+
+        // 3. Request Search ke API Target
+        const searchRes = await axios.get('https://spotify.downloaderize.com/wp-admin/admin-ajax.php', {
             params: {
                 action: 'sts_search_spotify',
                 query: query,
                 security: security
             },
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K)',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'x-requested-with': 'XMLHttpRequest',
                 'referer': 'https://spotify.downloaderize.com/'
             }
         });
 
-        const items = r.data?.data?.tracks?.items || [];
-        
-        if (items.length === 0) {
-            return res.status(200).json({ status: 'success', results: [] });
-        }
+        const items = searchRes.data?.data?.tracks?.items || [];
 
+        // 4. Format Hasil
         const results = items.map(v => ({
             title: v.name,
             artist: v.artists.map(a => a.name).join(', '),
             album: v.album.name,
-            thumbnail: v.album.images?.[0]?.url || null,
-            id: v.id,
-            // PENTING: Gunakan URL asli spotify agar player bisa memproses
-            url: v.external_urls?.spotify || `https://open.spotify.com/track/${v.id}`
+            thumbnail: v.album.images?.[0]?.url || 'https://via.placeholder.com/150',
+            // PERBAIKAN PENTING: Menggunakan URL external spotify langsung agar tidak error saat parsing ID
+            url: v.external_urls.spotify, 
+            id: v.id
         }));
 
         return res.status(200).json({ status: 'success', results });
 
     } catch (e) {
-        console.error("Search Error:", e.message);
-        return res.status(500).json({ status: 'error', msg: e.message });
+        console.error("Server Error Log:", e.message);
+        // Pastikan return JSON, bukan HTML error
+        return res.status(500).json({ 
+            status: 'error', 
+            msg: 'Gagal menghubungi server musik. Coba refresh atau cari kata kunci lain.' 
+        });
     }
 }
