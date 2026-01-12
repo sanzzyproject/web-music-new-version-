@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Music Player</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <div class="container">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fab fa-spotify"></i> MusicWeb
+            </div>
+            <nav>
+                <ul>
+                    <li onclick="showHome()" class="active"><i class="fas fa-home"></i> Home</li>
+                    <li onclick="focusSearch()"><i class="fas fa-search"></i> Cari</li>
+                    <li><i class="fas fa-book"></i> Koleksi</li>
+                </ul>
+            </nav>
+            <div class="playlist-section">
+                <h3>PLAYLISTS</h3>
+                <ul>
+                    <li>Lagu Galau</li>
+                    <li>Top Hits Indo</li>
+                    <li>Lo-Fi Focus</li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Apa yang ingin kamu dengarkan?">
+                </div>
+            </header>
+
+            <div id="homeView" class="view-section">
+                <h2>Selamat Datang</h2>
+                <p class="subtitle">Cari lagu favoritmu dan mainkan sekarang.</p>
+                
+                <div class="cards-container">
+                    <div class="card" onclick="triggerSearch('Top Hits Indonesia')">
+                        <img src="https://i.scdn.co/image/ab67616d0000b2734121faee8df82c526cbab2be" alt="Top Hits">
+                        <h4>Top Hits Indo</h4>
+                        <p>Lagu terpopuler saat ini.</p>
+                    </div>
+                    <div class="card" onclick="triggerSearch('Jalurlangit')">
+                        <img src="https://i.scdn.co/image/ab67616d0000b273d408b0723326eb981eb49f42" alt="Chill">
+                        <h4>Chill Vibes</h4>
+                        <p>Santai sejenak.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultsView" class="view-section hidden">
+                <h2 id="searchTitle">Hasil Pencarian</h2>
+                <div id="loader" class="loader hidden"></div>
+                <div id="trackList" class="track-list">
+                    </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="player-bar">
+        <div class="now-playing">
+            <img id="playerImg" src="https://via.placeholder.com/50" alt="Cover">
+            <div class="info">
+                <h4 id="playerTitle">Judul Lagu</h4>
+                <p id="playerArtist">Artis</p>
+            </div>
+        </div>
+        <div class="player-controls">
+            <div class="buttons">
+                <i class="fas fa-random"></i>
+                <i class="fas fa-step-backward"></i>
+                <button class="play-btn" onclick="togglePlay()">
+                    <i class="fas fa-play" id="playIcon"></i>
+                </button>
+                <i class="fas fa-step-forward"></i>
+                <i class="fas fa-redo"></i>
+            </div>
+            <div class="progress-container">
+                <span id="currentTime">0:00</span>
+                <input type="range" id="progressBar" value="0" min="0" step="1">
+                <span id="duration">0:00</span>
+            </div>
+        </div>
+        <div class="volume-controls">
+            <i class="fas fa-volume-up"></i>
+            <input type="range" min="0" max="1" step="0.1" value="1" onchange="setVolume(this.value)">
+        </div>
+        
+        <audio id="audioPlayer" src=""></audio>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
